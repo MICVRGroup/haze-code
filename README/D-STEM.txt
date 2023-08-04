@@ -1,0 +1,115 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%      Data  building     %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%load the pm25 ground level observations
+load ../Data/pm1500.mat
+ground.Y{1} = pm25.data;
+ground.Y_name{1} = 'pm2.5';
+n1 = size(ground.Y{1},1);
+T = size(ground.Y{1},2);
+
+%load the covariates for the 'wind','wendu','shidu','yaqiang' monitoring stations
+load ../Data/X.mat
+ground.X_beta{1} = X(:,:,1:1500);
+ground.X_beta_name{1} = {'wind','wendu','shidu','yaqiang'};
+
+ground.X_z{1} = ones(n1,1);
+ground.X_z_name{1} = {'constant'};
+
+load ../Data/X.mat
+A = permute(X,[1,3,2]);
+A1 = reshape(A,[11,1,1826,4]);
+ground.X_p{1} = A1(:,:,1:1500,:);
+ground.X_p_name{1} = {'wind1';'wendu1';'shidu1';'yaqiang1'};
+
+obj_stem_varset_p = stem_varset(ground.Y,ground.Y_name,[],[],ground.X_beta,ground.X_beta_name,ground.X_z,ground.X_z_name,ground.X_p,ground.X_p_name);
+
+%coordinates
+obj_stem_gridlist_p = stem_gridlist();
+ground.coordinates{1} = [pm25.lat,pm25.lon];
+obj_stem_grid = stem_grid(ground.coordinates{1},'deg','sparse','point');
+obj_stem_gridlist_p.add(obj_stem_grid);
+%clear no2_ground%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%      Model building     %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+  obj_stem_datestamp = stem_datestamp('01-01-2015 00:00','31-12-2019 00:00',T);
+
+%stem_data object creation
+if test_map
+    shape = shaperead('../Maps/worldmap');
+else
+    shape=[];
+end
+obj_stem_data = stem_data(obj_stem_varset_p,obj_stem_gridlist_p,[],[],obj_stem_datestamp,shape);
+obj_stem_par = stem_par(obj_stem_data,'exponential');
+obj_stem_model = stem_model(obj_stem_data,obj_stem_par);
+clear ground
+
+%Data transform
+obj_stem_model.stem_data.log_transform;
+obj_stem_model.stem_data.standardize;
+
+
+%obj_stem_par object initialization
+obj_stem_par.beta = obj_stem_model.get_beta0();
+obj_stem_par.alpha_p = [0.6,0.6,0.6,0.6];
+obj_stem_par.theta_p = [100,100,100,100]; %km
+v = [1,1,1,1]
+v1 = reshape(v,[1,1,4]);
+obj_stem_par.v_p = v1;
+obj_stem_par.sigma_eta = 0.2;
+obj_stem_par.G = 0.8;
+obj_stem_par.sigma_eps = 0.3;
+ 
+obj_stem_model.set_initial_values(obj_stem_par);
+
+%Model estimation
+exit_toll = 0.001;
+max_iterations = 100;
+obj_stem_EM_options = stem_EM_options(exit_toll,max_iterations);
+obj_stem_model.EM_estimate(obj_stem_EM_options);
+
+obj_stem_model.print;
+obj_stem_model.stem_EM_result.stem_kalmansmoother_result.plot;
+
+
+load ../Data/test_model.mat
+a1=test_model.stem_data.X_beta(:,1,:);
+a = reshape(a1,[11,326]);
+b1=test_model.stem_data.X_beta(:,2,:);
+b = reshape(b1,[11,326]);
+c1=test_model.stem_data.X_beta(:,3,:);
+c = reshape(c1,[11,326]);
+d1=test_model.stem_data.X_beta(:,4,:);
+d = reshape(d1,[11,326]);
+
+beta = obj_stem_model.stem_par.beta;
+alpha = obj_stem_model.stem_par.alpha_p;
+G1 = obj_stem_model.stem_par.G;
+G = zeros(1,326);
+X_z = obj_stem_model.stem_data.X_z;
+for t = 1:1:326 
+    G(:,t)=G1^t;
+end
+y = beta(1,1)*a + beta(2,1)*b + beta(3,1)*c + beta(4,1)*d + alpha(1,1)*a + alpha(1,2)*b + alpha(1,3)*c + alpha(1,4)*d+X_z*G;
+
+
+blocks=[0 cumsum(obj_stem_model.dim)];
+counter=1;
+load ../Data/test_model.mat
+for i=1:test_model.stem_data.stem_varset_p.nvar
+    s=test_model.stem_data.stem_varset_p.Y_stds{i};
+    m=test_model.stem_data.stem_varset_p.Y_means{i};
+    y_hat_back=y(blocks(counter)+1:blocks(counter+1),:);
+    st=nanstd(y_hat_back);
+    st=repmat(st,[size(y_hat_back,1),1]);
+    st=st.^2*s;
+    y_hat_back=exp(y_hat_back*s+m+st/2);
+    Y=y_hat_back;
+    counter=counter+1;
+end  
+save('.\Y_1.mat','Y');
