@@ -1,0 +1,83 @@
+library(TSA)
+library(xts)
+library(forecast)
+library(tseries)
+
+
+pm <- read.csv(paste(dir, "yuanshiP.csv", sep=""))
+tem <-  read.csv(paste(dir, "wen.csv", sep=""))
+hum <-  read.csv(paste(dir, "xiangduishidu.csv", sep=""))
+pre <-  read.csv(paste(dir, "yaqiang.csv", sep=""))
+wind <-  read.csv(paste(dir, "feng.csv", sep=""))
+#n <- nrow(pm)
+
+#plot(ts(pm[,2]))
+p=0:5
+d=0:2
+q=0:5
+pd <- as.matrix(merge(p,d))
+fun <- function(x,y){
+  x <- matrix(rep(x, length(y)), nrow=length(y), byrow = TRUE)
+  return(cbind(x, y))
+}
+pdq <- NULL
+for(i in 1:nrow(pd)){
+  pdq <- rbind(pdq, fun(pd[i,], q))
+}
+
+
+#forecasting performace
+result.matrix <- matrix(0, 4, 11)
+pdq.min <- NULL
+for(i in 2:ncol(pm)){
+  print(i)
+  y <- ts(pm[1:1500, i])
+  x <- cbind(tem[1:1500, i], hum[1:1500, i], pre[1:1500, i], wind[1:1500, i])
+  
+  library(foreach)
+  library(doParallel)
+  cl <- makeCluster(8)
+  #cl <- makeCluster(type="MPI")
+  registerDoParallel(cl)
+  param1v.length <- nrow(pdq)
+  work.directory <- getwd()
+  
+  results <- foreach(idx = 1: param1v.length, .export = ls(.GlobalEnv)) %dopar%{
+    setwd(work.directory)
+    library(TSA)
+    library(xts)
+    library(forecast)
+    library(tseries)
+    y.fit <- arimax(y, order=c(pdq[idx,1],pdq[idx,2],pdq[idx,3]), 
+                    seasonal=list(order=c(0,1,0),period=365), xreg = data.frame(x))
+    return(y.fit$aic)
+  }
+  stopCluster(cl)  
+  
+  aic <- unlist(results)
+  j.min <- which.min(aic)
+  
+  y.fit.min <- arimax(y, order=c(pdq[j.min,1],pdq[j.min,2],pdq[j.min,3]), 
+                      seasonal=list(order=c(0,1,0),period=365),xreg = data.frame(x))
+  #ARIMA order
+  pdq.min <- rbind(pdq.min, arimaorder(y.fit.min))
+  #forecasting
+  newx <- cbind(tem[1501:1826, i], hum[1501:1826, i], pre[1501:1826, i], wind[1501:1826, i])
+  pred <-  predict(y.fit.min, n.ahead=326, newxreg=data.frame(newx))$pred
+  print(pred)
+  groudtruth <- pm[1501:1826, i]
+  #performance indexes  
+  pcc <- sum(groudtruth*pred)/sqrt(sum(groudtruth^2)*sum(pred^2))
+  mse <- mean((groudtruth-pred)^2)
+  rmse <- sqrt(mse)
+  mae <- mean(abs(groudtruth-pred))
+  write.csv(c(i-1, pcc, mse, rmse, mae), file=paste(dir, "performance_arimax_",i-1,".csv", sep=""))
+  write.csv(c(i-1,arimaorder(y.fit.min)), file=paste(dir, "arimax_pdq_",i-1,".csv", sep=""))
+  result.matrix[, (i-1)] <- c(pcc, mse, rmse, mae)  
+}
+  
+result.mean <- apply(result.matrix, 1, mean)
+result.matrix <- cbind(result.matrix, result.mean)
+colnames(result.matrix) <- c(colnames(pm)[-1], "average")
+rownames(result.matrix) <- c("PCC", "MSE", "RMSE", "MAE")
+write.csv(result.matrix, file = paste(dir, "result.performance_arima_all.csv", sep=""))
