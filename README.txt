@@ -1,7 +1,3 @@
-## Data set
-
-Data from 55 air quality monitoring stations, including PM2.5 concentration, temperature, air pressure, relative humidity and wind speed and direction, were collected over a 60-month period from January 2015 to December 2019, covering all cities in Shanxi Province.
-
 ## Experimental environment
 
 + python >= 3.6
@@ -37,11 +33,12 @@ The code address of this paper is http://github.com/MICVRGroup/haze-code.
 The code address of SPDE is https://github.com/guidofio ravanti/spde_spatio_temporal_pm10_modelling_italy.
 The code address of D-Stem is https://code.google.com/p/d-stem/
 The code for creating map can be found in image.py
-The code for the ARIMA model can be found in ARIMA.txt
+The code for the ARIMAX model can be found in ARIMAX.txt
 The code for the SPDE model can be found in SPDE.txt
 The code for the D-Stem model can be found in D-Stem.txt
 The code for the 3D-CNN model can be found in file 3DCNN
 The code for the Conv-LSTM model can be found in convlstm.py
 The code for the LSTM model can be found in lstm.py
+
 
  
