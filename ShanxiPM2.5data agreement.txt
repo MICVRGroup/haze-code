@@ -1,0 +1,16 @@
+ShanxiPM2.5data introduction:
+
+The database contains five meteorological data, including PM2.5 concentration, temperature, 
+air pressure, relative humidity and wind speed and direction, for a total of 60-month period from 
+January 2015 to December 2019, covering 11 prefecture cities in Shanxi Province. 
+
+The ShanxiPM2.5data will be provided free of charge to meteorology-related researchers in order 
+to promote research. Without prior approval from the providers, the ShanxiPM2.5data, in whole 
+or in part, will not be used for commercial use.  
+
+In all documents and papers that report experimental results based on the ShanxiPM2.5data, 
+a citation of this dataset should be added into the references or acknowledged in the acknowledgement.
+
+The End-User may only use the ShanxiPM2.5data after obtaining permission from the providers. 
+The End-User need contact the providers at the following address: wangyu@sxu.edu.cn or yangxingli@sxu.edu.cn. 
+The database will be accessible online using a URL and password that are given by the providers. 
